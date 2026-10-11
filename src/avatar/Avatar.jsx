@@ -1,6 +1,6 @@
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { Html } from '@react-three/drei'
+import { CanvasTexture, SRGBColorSpace } from 'three'
 
 const DARK = '#1b1b1b'
 const PANTS = '#2e2f2f'
@@ -115,11 +115,7 @@ export default function Avatar({ config, speedRef, showName = true, ...props }) 
         <meshBasicMaterial color="#000" transparent opacity={0.16} depthWrite={false} />
       </mesh>
 
-      {showName && config.name && (
-        <Html position={[0, 1.95, 0]} center zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
-          <div className="name-tag">{config.name}</div>
-        </Html>
-      )}
+      {showName && config.name && <NameTag name={config.name} position={[0, 1.95, 0]} />}
     </group>
   )
 }
@@ -364,5 +360,39 @@ function Cap({ color, thick = false }) {
       <sphereGeometry args={[r, 24, 14, 0, Math.PI * 2, 0, Math.PI * 0.5]} />
       <meshStandardMaterial color={color} roughness={0.9} />
     </mesh>
+  )
+}
+
+// Étiquette du prénom au-dessus de la tête : une petite image dessinée une fois, qui fait toujours face à la caméra.
+function NameTag({ name, position }) {
+  const { tex, ratio } = useMemo(() => {
+    const H = 72
+    const font = `700 38px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif`
+    const probe = document.createElement('canvas').getContext('2d')
+    probe.font = font
+    const W = Math.ceil(probe.measureText(name).width) + 56
+    const c = document.createElement('canvas')
+    c.width = W
+    c.height = H
+    const g = c.getContext('2d')
+    g.fillStyle = 'rgba(46,47,47,0.92)'
+    g.beginPath()
+    g.roundRect(0, 0, W, H, H / 2)
+    g.fill()
+    g.fillStyle = '#fff'
+    g.font = font
+    g.textAlign = 'center'
+    g.textBaseline = 'middle'
+    g.fillText(name, W / 2, H / 2 + 2)
+    const t = new CanvasTexture(c)
+    t.colorSpace = SRGBColorSpace
+    return { tex: t, ratio: W / H }
+  }, [name])
+  useEffect(() => () => tex.dispose(), [tex])
+  const h = 0.17
+  return (
+    <sprite position={position} scale={[h * ratio, h, 1]} renderOrder={10}>
+      <spriteMaterial map={tex} transparent depthTest={false} toneMapped={false} />
+    </sprite>
   )
 }

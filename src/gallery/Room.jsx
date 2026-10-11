@@ -1,31 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { useTexture } from '@react-three/drei'
 import { CanvasTexture, RepeatWrapping, SRGBColorSpace } from 'three'
-import { ARTWORKS } from '../data/artworks.js'
-import { makeTextTexture } from './textTexture.js'
-
-// Dimensions de la pièce (en mètres)
-export const ROOM = { w: 22, d: 16, h: 5 }
-
-// Obstacles pour le personnage : cercles (socles) et boîtes (banc)
-export const CIRCLES = [
-  { x: 5.5, z: -5, r: 0.55 },
-  { x: 5.5, z: 0, r: 0.55 },
-  { x: 5.5, z: 5, r: 0.55 },
-]
-export const BOXES = [{ x: -5.5, z: 0, hw: 0.45, hd: 1.5 }]
+import { DOOR_Z, ROOM, wallPose } from './layout.js'
+import { doorsFor } from '../data/rooms.js'
+import { getTexture } from './textures.js'
+import {
+  makeBoardTexture,
+  makeCardTexture,
+  makeGlowTexture,
+  makeTextTexture,
+  makeTileTexture,
+} from './textTexture.js'
 
 const CHARCOAL = '#2e2f2f'
 const WALL = '#f6f5f2'
 
-const DOORS = [
-  { id: 'portfolio', label: 'Portfolio', sub: 'Projets web & présentations', color: '#52c2e4', z: -4.5 },
-  { id: 'reseaux', label: 'Réseaux sociaux', sub: 'Liens & contenu', color: '#dd4a8e', z: 0 },
-  { id: 'apropos', label: 'À propos', sub: 'Qui je suis', color: '#f2a52a', z: 4.5 },
-]
-
-export default function Room({ onOpenArtwork, onToast }) {
+export default function Room({ room, onOpen, onDoor }) {
   const { w, d, h } = ROOM
 
   const floorTex = useMemo(() => {
@@ -49,33 +39,31 @@ export default function Room({ onOpenArtwork, onToast }) {
     () =>
       makeTextTexture(
         [
-          { text: 'PIÈCE 01', size: 44, weight: 600, color: '#8a8a85', gap: 18 },
-          { text: 'Graphisme', size: 190, weight: 800, color: CHARCOAL, gap: 14 },
-          { text: 'Covers, identités & collages', size: 54, weight: 400, color: '#5c5c58' },
+          { text: `PIÈCE ${room.number} · ${room.subtitle.toUpperCase()}`, size: 34, weight: 700, color: '#6b6b66', gap: 8 },
+          { text: room.title, size: 130, weight: 800, color: CHARCOAL },
         ],
-        { width: 1600, height: 520, pad: 30 },
+        { width: 1900, height: 260, pad: 10 },
       ),
-    [],
+    [room],
   )
+  useEffect(() => () => {
+    floorTex.dispose()
+    titleTex.dispose()
+  }, [floorTex, titleTex])
 
-  const left = ARTWORKS.slice(0, 3)
-  const back = ARTWORKS.slice(3)
-  const leftZ = [-4.5, 0, 4.5]
-  const backX = [-6, 6]
+  const doors = useMemo(() => doorsFor(room.id, DOOR_Z), [room.id])
 
   return (
     <group>
-      {/* Sol */}
+      {/* Sol, plafond, murs */}
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[w, d]} />
         <meshStandardMaterial map={floorTex} roughness={0.5} />
       </mesh>
-      {/* Plafond */}
       <mesh position={[0, h, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <planeGeometry args={[w, d]} />
         <meshStandardMaterial color="#fbfbf9" />
       </mesh>
-      {/* Murs */}
       <mesh position={[0, h / 2, -d / 2]}>
         <planeGeometry args={[w, h]} />
         <meshStandardMaterial color={WALL} />
@@ -92,12 +80,11 @@ export default function Room({ onOpenArtwork, onToast }) {
         <planeGeometry args={[d, h]} />
         <meshStandardMaterial color={WALL} />
       </mesh>
-      {/* Plinthes */}
-      <Skirting w={w} d={d} />
+      <Skirting w={w} d={d} accent={room.accent} />
 
       {/* Dalles lumineuses au plafond */}
-      {[-6, 0, 6].flatMap((x) =>
-        [-4, 4].map((z) => (
+      {[-8, 0, 8].flatMap((x) =>
+        [-4.5, 4.5].map((z) => (
           <mesh key={`${x}${z}`} position={[x, h - 0.01, z]} rotation={[Math.PI / 2, 0, 0]}>
             <planeGeometry args={[3.2, 1.2]} />
             <meshBasicMaterial color="#ffffff" />
@@ -105,67 +92,73 @@ export default function Room({ onOpenArtwork, onToast }) {
         )),
       )}
 
-      {/* Titre de la pièce, mur du fond */}
-      <mesh position={[0, 2.5, -d / 2 + 0.01]}>
-        <planeGeometry args={[8, 2.6]} />
+      {/* Titre de la salle */}
+      <mesh position={[0, 4.45, -d / 2 + 0.01]}>
+        <planeGeometry args={[7.6, 1.04]} />
         <meshBasicMaterial map={titleTex} transparent toneMapped={false} />
       </mesh>
 
-      {/* Œuvres */}
-      {left.map((art, i) => (
-        <Artwork key={art.id} art={art} position={[-w / 2 + 0.02, 2.3, leftZ[i]]} rotation={[0, Math.PI / 2, 0]} onOpen={onOpenArtwork} />
-      ))}
-      {back.map((art, i) => (
-        <Artwork key={art.id} art={art} position={[backX[i], 2.3, -d / 2 + 0.02]} rotation={[0, 0, 0]} onOpen={onOpenArtwork} />
+      {/* Œuvres, panneaux, pastilles */}
+      {room.items.map((item, i) => {
+        const pose = wallPose(item.wall, item.at, item.y ?? 2.25)
+        if (item.type === 'board') return <Board key={`${room.id}-${i}`} item={item} pose={pose} accent={room.accent} />
+        if (item.type === 'tile') return <Tile key={`${room.id}-${i}`} item={item} pose={pose} onOpen={onOpen} />
+        return <Frame key={`${room.id}-${i}`} item={item} pose={pose} onOpen={onOpen} />
+      })}
+
+      {/* Portes vers les autres salles */}
+      {doors.map((door) => (
+        <Door key={door.target} door={door} onDoor={onDoor} />
       ))}
 
-      {/* Portes vers les autres pièces (bientôt) */}
-      {DOORS.map((door) => (
-        <Door key={door.id} door={door} onToast={onToast} />
-      ))}
-
-      {/* Banc */}
-      <group position={[-5.5, 0, 0]}>
-        <mesh position={[0, 0.42, 0]}>
-          <boxGeometry args={[0.8, 0.12, 2.8]} />
-          <meshStandardMaterial color={CHARCOAL} />
-        </mesh>
-        {[-1.2, 1.2].map((z) => (
-          <mesh key={z} position={[0, 0.2, z]}>
-            <boxGeometry args={[0.7, 0.4, 0.12]} />
-            <meshStandardMaterial color={CHARCOAL} />
-          </mesh>
-        ))}
-      </group>
-
-      {/* Socles avec carrés de couleur (clin d'œil à "Potentiel Zero") */}
-      <Plinth position={[5.5, 0, -5]} color="#84bd4b" />
-      <Plinth position={[5.5, 0, 5]} color="#dd4a8e" />
-      <Plinth position={[5.5, 0, 0]} color="#f2a52a" />
+      {/* Décor */}
+      {room.decor.map((dec, i) =>
+        dec.type === 'bench' ? <Bench key={i} {...dec} /> : <Plinth key={i} position={[dec.x, 0, dec.z]} color={dec.color} />,
+      )}
     </group>
   )
 }
 
-function Skirting({ w, d }) {
+function Skirting({ w, d, accent }) {
   const t = 0.14
+  const strips = [
+    [[0, -d / 2 + 0.02], [w, 0.04]],
+    [[0, d / 2 - 0.02], [w, 0.04]],
+    [[-w / 2 + 0.02, 0], [0.04, d]],
+    [[w / 2 - 0.02, 0], [0.04, d]],
+  ]
   return (
     <group>
-      <mesh position={[0, t / 2, -d / 2 + 0.02]}>
-        <boxGeometry args={[w, t, 0.04]} />
+      {strips.map(([[x, z], [sx, sz]], i) => (
+        <group key={i}>
+          <mesh position={[x, t / 2, z]}>
+            <boxGeometry args={[sx, t, sz]} />
+            <meshStandardMaterial color={CHARCOAL} />
+          </mesh>
+          <mesh position={[x, t + 0.02, z]}>
+            <boxGeometry args={[sx + 0.005, 0.03, sz + 0.005]} />
+            <meshBasicMaterial color={accent} toneMapped={false} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  )
+}
+
+function Bench({ x, z, along, len }) {
+  const rot = along === 'x' ? Math.PI / 2 : 0
+  return (
+    <group position={[x, 0, z]} rotation={[0, rot, 0]}>
+      <mesh position={[0, 0.42, 0]}>
+        <boxGeometry args={[0.8, 0.12, len]} />
         <meshStandardMaterial color={CHARCOAL} />
       </mesh>
-      <mesh position={[0, t / 2, d / 2 - 0.02]}>
-        <boxGeometry args={[w, t, 0.04]} />
-        <meshStandardMaterial color={CHARCOAL} />
-      </mesh>
-      <mesh position={[-w / 2 + 0.02, t / 2, 0]}>
-        <boxGeometry args={[0.04, t, d]} />
-        <meshStandardMaterial color={CHARCOAL} />
-      </mesh>
-      <mesh position={[w / 2 - 0.02, t / 2, 0]}>
-        <boxGeometry args={[0.04, t, d]} />
-        <meshStandardMaterial color={CHARCOAL} />
-      </mesh>
+      {[-1, 1].map((s) => (
+        <mesh key={s} position={[0, 0.2, s * (len / 2 - 0.3)]}>
+          <boxGeometry args={[0.7, 0.4, 0.12]} />
+          <meshStandardMaterial color={CHARCOAL} />
+        </mesh>
+      ))}
     </group>
   )
 }
@@ -192,95 +185,200 @@ function Plinth({ position, color }) {
   )
 }
 
-// Un cadre : bord charbon, passe-partout blanc, image, et petite plaque dessous.
-function Artwork({ art, position, rotation, onOpen }) {
-  const S = 2.0
-  const tex = useTexture(art.file)
-  tex.colorSpace = SRGBColorSpace
-  tex.anisotropy = 8
-  const group = useRef()
-  const [hover, setHover] = useState(false)
-
-  const plaque = useMemo(
-    () =>
-      makeTextTexture(
-        [
-          { text: art.title, size: 54, weight: 700 },
-          { text: art.kind, size: 38, weight: 400, color: '#6b6b66' },
-        ],
-        { width: 900, height: 170, pad: 14 },
-      ),
-    [art],
-  )
-
-  useFrame((_, dt) => {
-    if (!group.current) return
-    const target = hover ? 1.035 : 1
-    const s = group.current.scale.x
-    const n = s + (target - s) * Math.min(1, dt * 12)
-    group.current.scale.set(n, n, 1)
-  })
-
-  useEffect(() => () => {
-    document.body.style.cursor = ''
-  }, [])
-
+// Petite lampe au-dessus d'un cadre, avec son halo de lumière sur le mur.
+function Lamp({ w, h }) {
+  const glow = useMemo(() => makeGlowTexture(), [])
+  useEffect(() => () => glow.dispose(), [glow])
+  const top = h / 2 + 0.3
   return (
-    <group position={position} rotation={rotation}>
-      <group
-        ref={group}
-        onPointerOver={(e) => {
-          e.stopPropagation()
-          setHover(true)
-          document.body.style.cursor = 'pointer'
-        }}
-        onPointerOut={() => {
-          setHover(false)
-          document.body.style.cursor = ''
-        }}
-        onClick={(e) => {
-          e.stopPropagation()
-          // un glisser pour tourner la caméra ne doit pas ouvrir l'œuvre
-          if (e.delta > 8) return
-          onOpen(art)
-        }}
-      >
-        <mesh position={[0, 0, 0.04]}>
-          <boxGeometry args={[S + 0.5, S + 0.5, 0.08]} />
-          <meshStandardMaterial color={CHARCOAL} />
-        </mesh>
-        <mesh position={[0, 0, 0.085]}>
-          <planeGeometry args={[S + 0.36, S + 0.36]} />
-          <meshBasicMaterial color="#fbfbf9" toneMapped={false} />
-        </mesh>
-        <mesh position={[0, 0, 0.09]}>
-          <planeGeometry args={[S, S]} />
-          <meshBasicMaterial map={tex} toneMapped={false} />
-        </mesh>
-      </group>
-      <mesh position={[-S / 2 + 0.55, -S / 2 - 0.58, 0.01]}>
-        <planeGeometry args={[1.8, 0.34]} />
-        <meshBasicMaterial map={plaque} transparent toneMapped={false} />
+    <group>
+      <mesh position={[0, -0.2, 0.004]}>
+        <planeGeometry args={[w + 3.4, h + 3.2]} />
+        <meshBasicMaterial map={glow} transparent depthWrite={false} toneMapped={false} />
+      </mesh>
+      <mesh position={[0, top + 0.12, 0.05]}>
+        <boxGeometry args={[0.07, 0.3, 0.07]} />
+        <meshStandardMaterial color={CHARCOAL} />
+      </mesh>
+      <mesh position={[0, top, 0.24]}>
+        <boxGeometry args={[0.55, 0.08, 0.16]} />
+        <meshStandardMaterial color={CHARCOAL} />
+      </mesh>
+      <mesh position={[0, top - 0.05, 0.24]}>
+        <boxGeometry args={[0.45, 0.02, 0.1]} />
+        <meshBasicMaterial color="#fff6d6" toneMapped={false} />
       </mesh>
     </group>
   )
 }
 
-function Door({ door, onToast }) {
+function useHover() {
+  const [hover, setHover] = useState(false)
+  useEffect(() => () => {
+    document.body.style.cursor = ''
+  }, [])
+  return {
+    hover,
+    handlers: {
+      onPointerOver: (e) => {
+        e.stopPropagation()
+        setHover(true)
+        document.body.style.cursor = 'pointer'
+      },
+      onPointerOut: () => {
+        setHover(false)
+        document.body.style.cursor = ''
+      },
+    },
+  }
+}
+
+function useGrow(ref, hover) {
+  useFrame((_, dt) => {
+    if (!ref.current) return
+    const target = hover ? 1.035 : 1
+    const s = ref.current.scale.x
+    const n = s + (target - s) * Math.min(1, dt * 12)
+    ref.current.scale.set(n, n, 1)
+  })
+}
+
+// Un cadre : image (ou affiche de projet), bord charbon, lampe, plaque dessous.
+function Frame({ item, pose, onOpen }) {
+  const [w, h] = item.size
+  const pad = Math.min(0.16, Math.max(0.1, w * 0.07))
+  const src = getTexture(item.image ?? item.cover?.image)
+  const map = useMemo(() => (item.cover ? makeCardTexture(item.cover, src?.image) : src), [item, src])
+  useEffect(
+    () => () => {
+      // libère la mémoire graphique ; l'image reste en cache pour un prochain passage
+      map?.dispose()
+      if (map !== src) src?.dispose()
+    },
+    [map, src],
+  )
+
+  const group = useRef()
+  const { hover, handlers } = useHover()
+  useGrow(group, hover)
+
+  const plaqueTex = useMemo(
+    () =>
+      makeTextTexture(
+        [
+          { text: item.panel.title, size: 54, weight: 700 },
+          { text: item.panel.kind, size: 38, weight: 400, color: '#6b6b66' },
+        ],
+        { width: 1100, height: 170, pad: 14 },
+      ),
+    [item],
+  )
+  useEffect(() => () => plaqueTex.dispose(), [plaqueTex])
+  const pw = Math.min(2.6, Math.max(1.6, w + 0.4))
+
+  return (
+    <group position={pose.position} rotation={pose.rotation}>
+      <Lamp w={w} h={h} />
+      <group
+        ref={group}
+        {...handlers}
+        onClick={(e) => {
+          e.stopPropagation()
+          if (e.delta > 8) return // un glisser pour tourner la caméra ne doit pas ouvrir l'œuvre
+          onOpen({ ...item.panel, image: item.image ?? null, cover: item.cover ?? null })
+        }}
+      >
+        <mesh position={[0, 0, 0.04]}>
+          <boxGeometry args={[w + pad * 2 + 0.1, h + pad * 2 + 0.1, 0.08]} />
+          <meshStandardMaterial color={CHARCOAL} />
+        </mesh>
+        <mesh position={[0, 0, 0.085]}>
+          <planeGeometry args={[w + pad * 2, h + pad * 2]} />
+          <meshBasicMaterial color="#fbfbf9" toneMapped={false} />
+        </mesh>
+        <mesh position={[0, 0, 0.09]}>
+          <planeGeometry args={[w, h]} />
+          <meshBasicMaterial map={map} toneMapped={false} />
+        </mesh>
+      </group>
+      <mesh position={[-(w + pad * 2) / 2 + pw / 2 + 0.05, -(h / 2 + pad + 0.34), 0.01]}>
+        <planeGeometry args={[pw, pw * (170 / 1100)]} />
+        <meshBasicMaterial map={plaqueTex} transparent toneMapped={false} />
+      </mesh>
+    </group>
+  )
+}
+
+// Pastille de réseau social (cliquable).
+function Tile({ item, pose, onOpen }) {
+  const [w, h] = item.size
+  const tex = useMemo(() => makeTileTexture(item.tile), [item])
+  useEffect(() => () => tex.dispose(), [tex])
+  const group = useRef()
+  const { hover, handlers } = useHover()
+  useGrow(group, hover)
+  return (
+    <group position={pose.position} rotation={pose.rotation}>
+      <Lamp w={w} h={h} />
+      <group
+        ref={group}
+        {...handlers}
+        onClick={(e) => {
+          e.stopPropagation()
+          if (e.delta > 8) return
+          onOpen({ ...item.panel, image: null, accent: item.tile.color, accentInk: item.tile.ink })
+        }}
+      >
+        <mesh position={[0, 0, 0.04]}>
+          <boxGeometry args={[w + 0.22, h + 0.22, 0.08]} />
+          <meshStandardMaterial color={CHARCOAL} />
+        </mesh>
+        <mesh position={[0, 0, 0.09]}>
+          <planeGeometry args={[w, h]} />
+          <meshBasicMaterial map={tex} toneMapped={false} />
+        </mesh>
+      </group>
+    </group>
+  )
+}
+
+// Panneau de texte accroché au mur (non cliquable).
+function Board({ item, pose, accent }) {
+  const [w, h] = item.size
+  const tex = useMemo(() => makeBoardTexture(item.board, item.size, accent), [item, accent])
+  useEffect(() => () => tex.dispose(), [tex])
+  return (
+    <group position={pose.position} rotation={pose.rotation}>
+      <Lamp w={w} h={h} />
+      <mesh position={[0, 0, 0.04]}>
+        <boxGeometry args={[w + 0.14, h + 0.14, 0.08]} />
+        <meshStandardMaterial color={CHARCOAL} />
+      </mesh>
+      <mesh position={[0, 0, 0.085]}>
+        <planeGeometry args={[w, h]} />
+        <meshBasicMaterial map={tex} toneMapped={false} />
+      </mesh>
+    </group>
+  )
+}
+
+function Door({ door, onDoor }) {
   const tex = useMemo(
     () =>
       makeTextTexture(
         [
-          { text: door.label, size: 56, weight: 800 },
-          { text: `${door.sub} · bientôt`, size: 32, weight: 400, color: '#6b6b66' },
+          { text: door.label, size: 60, weight: 800 },
+          { text: door.sub, size: 34, weight: 400, color: '#6b6b66' },
         ],
-        { width: 800, height: 170, pad: 14, align: 'center' },
+        { width: 900, height: 170, pad: 14, align: 'center' },
       ),
     [door],
   )
+  useEffect(() => () => tex.dispose(), [tex])
   const [hover, setHover] = useState(false)
+  const pose = wallPose('right', door.z, 0)
   return (
-    <group position={[ROOM.w / 2 - 0.02, 0, door.z]} rotation={[0, -Math.PI / 2, 0]}>
+    <group position={pose.position} rotation={pose.rotation}>
       <mesh position={[0, 1.6, 0.03]}>
         <boxGeometry args={[1.9, 3.2, 0.06]} />
         <meshStandardMaterial color={CHARCOAL} />
@@ -298,7 +396,8 @@ function Door({ door, onToast }) {
         onClick={(e) => {
           e.stopPropagation()
           if (e.delta > 8) return
-          onToast(`${door.label} — cette pièce ouvre bientôt.`)
+          document.body.style.cursor = ''
+          onDoor(door.target)
         }}
       >
         <planeGeometry args={[1.6, 3.0]} />
@@ -309,7 +408,7 @@ function Door({ door, onToast }) {
         <meshStandardMaterial color="#fbfbf9" />
       </mesh>
       <mesh position={[0, 3.62, 0.01]}>
-        <planeGeometry args={[3.2, 0.68]} />
+        <planeGeometry args={[3.6, 0.68]} />
         <meshBasicMaterial map={tex} transparent toneMapped={false} />
       </mesh>
     </group>

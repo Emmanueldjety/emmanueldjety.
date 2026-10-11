@@ -102,6 +102,7 @@ export default function Creator({ avatar, setAvatar, onEnter }) {
           if (nameOk) onEnter()
         }}
       >
+        <div className="panel-scroll">
         <p className="eyebrow">MDA · galerie virtuelle</p>
         <h1>Crée ton personnage</h1>
         <p className="lead">Avant d’entrer, choisis qui tu seras dans la galerie.</p>
@@ -140,6 +141,8 @@ export default function Creator({ avatar, setAvatar, onEnter }) {
         <div className="field">
           <span>Visage</span>
           <Pills options={FACES} value={avatar.face} onChange={(face) => set({ face })} label="Visage" />
+        </div>
+
         </div>
 
         <div className="actions">

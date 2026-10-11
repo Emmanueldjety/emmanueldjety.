@@ -1,9 +1,11 @@
-import { useRef } from 'react'
+import { useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Vector3 } from 'three'
 import Avatar from '../avatar/Avatar.jsx'
 import { input } from './input.js'
-import { BOXES, CIRCLES, ROOM } from './Room.jsx'
+import { ROOM } from './layout.js'
+import { DOOR_Z } from './layout.js'
+import { collidersFor, doorsFor } from '../data/rooms.js'
 
 const RADIUS = 0.35
 const WALK = 3.0
@@ -17,15 +19,19 @@ function angleLerp(a, b, t) {
   return a + d * t
 }
 
-export default function Player({ config, spawn = [0, 0, 3.5] }) {
+export default function Player({ config, room, spawn, facing0 = Math.PI, onDoor }) {
   const group = useRef()
   const speedRef = useRef(0)
   const pos = useRef(new Vector3(...spawn))
-  const facing = useRef(Math.PI)
+  const facing = useRef(facing0)
   const camPos = useRef(new Vector3())
   const target = useRef(new Vector3())
   const first = useRef(true)
+  const doorFired = useRef(false)
   const { camera, size } = useThree()
+  if (import.meta.env.DEV) window.__pos = pos.current // pour les tests automatiques (absent en production)
+  const { circles, boxes } = useMemo(() => collidersFor(room), [room])
+  const doors = useMemo(() => doorsFor(room.id, DOOR_Z), [room.id])
 
   useFrame((_, delta) => {
     const dt = Math.min(delta, 0.05)
@@ -58,7 +64,7 @@ export default function Player({ config, spawn = [0, 0, 3.5] }) {
     p.x = Math.max(-hx, Math.min(hx, p.x))
     p.z = Math.max(-hz, Math.min(hz, p.z))
     // socles
-    for (const c of CIRCLES) {
+    for (const c of circles) {
       const dx = p.x - c.x
       const dz = p.z - c.z
       const dist = Math.hypot(dx, dz)
@@ -69,8 +75,8 @@ export default function Player({ config, spawn = [0, 0, 3.5] }) {
         p.z = c.z + dz * f
       }
     }
-    // banc
-    for (const b of BOXES) {
+    // bancs
+    for (const b of boxes) {
       const dx = p.x - b.x
       const dz = p.z - b.z
       const ox = b.hw + RADIUS - Math.abs(dx)
@@ -81,8 +87,17 @@ export default function Player({ config, spawn = [0, 0, 3.5] }) {
       }
     }
 
+    // portes : on y entre en marchant dedans
+    if (!doorFired.current && p.x > ROOM.w / 2 - 1.1) {
+      const d = doors.find((dd) => Math.abs(p.z - dd.z) < 0.95)
+      if (d) {
+        doorFired.current = true
+        onDoor(d.target)
+      }
+    }
+
     if (mag > 0.05) facing.current = angleLerp(facing.current, Math.atan2(mx, mz), Math.min(1, dt * 12))
-    speedRef.current += ((mag * (run ? 1 : 0.7)) - speedRef.current) * Math.min(1, dt * 10)
+    speedRef.current += (mag * (run ? 1 : 0.7) - speedRef.current) * Math.min(1, dt * 10)
 
     if (group.current) {
       group.current.position.copy(p)
@@ -92,8 +107,8 @@ export default function Player({ config, spawn = [0, 0, 3.5] }) {
     // caméra à la troisième personne
     const pitch = input.pitch
     const cp = Math.cos(pitch)
-    const CAM = size.width < size.height ? CAM_DIST_PORTRAIT : CAM_DIST
     const want = camPos.current
+    const CAM = size.width < size.height ? CAM_DIST_PORTRAIT : CAM_DIST
     const tx = p.x + Math.sin(input.yaw) * cp * CAM
     const ty = p.y + 1.15 + Math.sin(pitch) * CAM
     const tz = p.z + Math.cos(input.yaw) * cp * CAM
@@ -110,7 +125,7 @@ export default function Player({ config, spawn = [0, 0, 3.5] }) {
       want.z += (cz - want.z) * s
     }
     camera.position.copy(want)
-    target.current.set(p.x, p.y + 1.1, p.z)
+    target.current.set(p.x, p.y + 1.5, p.z)
     camera.lookAt(target.current)
   })
 
