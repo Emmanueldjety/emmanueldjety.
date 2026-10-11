@@ -27,5 +27,5 @@ On passe d'une salle à l'autre en marchant dans une porte, ou avec les boutons 
 
 - **Tous les textes, œuvres et liens** : `src/data/rooms.js` (un fichier, un bloc par salle).
 - **Images** : dans `src/assets/` (art/ pour les covers, work/ pour le reste).
-- **Options du personnage** (couleurs, coiffures…) : `src/avatar/config.js`.
+- **Options du personnage** : couleurs et coiffures dans `src/avatar/config.js` ; formes de têtes, yeux et bouches (dessinés en 2D) dans `src/avatar/face.js`.
 - **Taille des salles, position des portes** : `src/gallery/layout.js`.

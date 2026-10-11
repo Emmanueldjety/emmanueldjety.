@@ -1,7 +1,7 @@
 // Toutes les options du créateur de personnage sont ici.
 // Pour ajouter une teinte, une couleur ou un style : ajoute une ligne.
 
-export const SKIN_TONES = ['#fbd9bd', '#e8b98a', '#c68642', '#9a5f30', '#6f4023', '#4a2a18']
+export const SKIN_TONES = ['#fbd9bd', '#e8b98a', '#c68642', '#9a5f30', '#7a4527', '#59331d']
 
 export const OUTFITS = [
   { id: 'tee', label: 'T-shirt' },
@@ -28,17 +28,14 @@ export const HAIRS = [
   { id: 'afro', label: 'Afro' },
   { id: 'locs', label: 'Locks' },
   { id: 'puffs', label: 'Puffs' },
+  { id: 'bun', label: 'Chignon' },
+  { id: 'quiff', label: 'Banane' },
+  { id: 'bob', label: 'Carré' },
 ]
 
 export const HAIR_COLORS = ['#1b1b1b', '#4a2c1a', '#8a4b1f', '#e8c15a', '#dd4a8e', '#52c2e4']
 
-export const FACES = [
-  { id: 'smile', label: 'Content' },
-  { id: 'joy', label: 'Joyeux' },
-  { id: 'cool', label: 'Cool' },
-  { id: 'wink', label: 'Clin d’œil' },
-  { id: 'wow', label: 'Surpris' },
-]
+// Les formes de têtes, les yeux et les bouches sont dans face.js
 
 export const DEFAULT_AVATAR = {
   name: '',
@@ -47,10 +44,12 @@ export const DEFAULT_AVATAR = {
   outfitColor: OUTFIT_COLORS[2],
   hair: 'locs',
   hairColor: HAIR_COLORS[0],
-  face: 'smile',
+  head: 'round',
+  eyes: 'dots',
+  mouth: 'smile',
 }
 
-const KEY = 'galerie-avatar-v1'
+const KEY = 'galerie-avatar-v2'
 
 export function loadAvatar() {
   try {

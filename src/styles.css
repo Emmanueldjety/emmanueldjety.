@@ -73,6 +73,13 @@ h1 { margin: -6px 0 0; font-size: 34px; line-height: 1.05; font-weight: 800; let
   padding: 8px 14px; border-radius: 999px; border: 2px solid var(--ink); background: transparent; font-weight: 600; font-size: 14px;
 }
 .pill.on { background: var(--ink); color: #fff; }
+.thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+.thumb {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px 6px;
+  background: #fff; border: 2px solid var(--line); border-radius: 12px;
+}
+.thumb span { font-size: 12px; font-weight: 600; }
+.thumb.on { border-color: var(--ink); box-shadow: 3px 3px 0 var(--ink); }
 .actions { display: flex; gap: 10px; flex-shrink: 0; padding: 14px 32px calc(16px + env(safe-area-inset-bottom, 0px)); background: var(--paper); border-top: 2px solid var(--line); }
 .primary, .ghost { padding: 14px 18px; border-radius: 12px; font-weight: 700; border: 2px solid var(--ink); }
 .primary { flex: 1; background: var(--ink); color: #fff; }

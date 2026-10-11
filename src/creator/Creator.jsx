@@ -1,18 +1,18 @@
 import { useRef, useEffect } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import Avatar from '../avatar/Avatar.jsx'
-import {
-  FACES,
-  HAIRS,
-  HAIR_COLORS,
-  OUTFITS,
-  OUTFIT_COLORS,
-  SKIN_TONES,
-} from '../avatar/config.js'
+import { HAIRS, HAIR_COLORS, OUTFITS, OUTFIT_COLORS, SKIN_TONES } from '../avatar/config.js'
+import { EYES, HEADS, MOUTHS } from '../avatar/face.js'
+import Thumb from './Thumb.jsx'
 
 function Turntable({ config }) {
   const g = useRef()
   useFrame((_, dt) => {
+    // ?still dans l'adresse : personnage de face, immobile (utile pour les captures de test)
+    if (import.meta.env.DEV && location.search.includes('still')) {
+      if (g.current) g.current.rotation.y = 0.25
+      return
+    }
     if (g.current) g.current.rotation.y += dt * 0.7
   })
   return (
@@ -78,7 +78,9 @@ export default function Creator({ avatar, setAvatar, onEnter }) {
       outfitColor: pick(OUTFIT_COLORS),
       hair: pick(HAIRS).id,
       hairColor: pick(HAIR_COLORS),
-      face: pick(FACES).id,
+      head: pick(HEADS).id,
+      eyes: pick(EYES).id,
+      mouth: pick(MOUTHS).id,
     })
 
   return (
@@ -139,8 +141,30 @@ export default function Creator({ avatar, setAvatar, onEnter }) {
         </div>
 
         <div className="field">
-          <span>Visage</span>
-          <Pills options={FACES} value={avatar.face} onChange={(face) => set({ face })} label="Visage" />
+          <span>Forme de tête</span>
+          <div className="thumbs" role="radiogroup" aria-label="Forme de tête">
+            {HEADS.map((o) => (
+              <Thumb key={o.id} kind="head" id={o.id} label={o.label} skin={avatar.skin} active={avatar.head === o.id} onClick={() => set({ head: o.id })} />
+            ))}
+          </div>
+        </div>
+
+        <div className="field">
+          <span>Yeux</span>
+          <div className="thumbs" role="radiogroup" aria-label="Yeux">
+            {EYES.map((o) => (
+              <Thumb key={o.id} kind="eyes" id={o.id} label={o.label} skin={avatar.skin} active={avatar.eyes === o.id} onClick={() => set({ eyes: o.id })} />
+            ))}
+          </div>
+        </div>
+
+        <div className="field">
+          <span>Bouche</span>
+          <div className="thumbs" role="radiogroup" aria-label="Bouche">
+            {MOUTHS.map((o) => (
+              <Thumb key={o.id} kind="mouth" id={o.id} label={o.label} skin={avatar.skin} active={avatar.mouth === o.id} onClick={() => set({ mouth: o.id })} />
+            ))}
+          </div>
         </div>
 
         </div>

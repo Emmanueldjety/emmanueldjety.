@@ -1,12 +1,18 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { CanvasTexture, SRGBColorSpace } from 'three'
+import { RoundedBox } from '@react-three/drei'
+import { CanvasTexture, LatheGeometry, SRGBColorSpace, Vector2 } from 'three'
+import { HEADS, drawFace, shade } from './face.js'
 
-const DARK = '#1b1b1b'
 const PANTS = '#2e2f2f'
+const R = 0.32 // rayon de base de la tête
 
-// Petit personnage construit uniquement avec des formes simples (capsules, sphères).
-// `speedRef.current` (0 → 1) fait marcher le personnage ; `showName` affiche le prénom.
+// Matière « aplat » : couleur unie, sans ombres, comme une illustration vectorielle.
+function Flat({ color }) {
+  return <meshBasicMaterial color={color} toneMapped={false} />
+}
+
+// Petit personnage en aplats de couleur. `speedRef.current` (0 → 1) le fait marcher.
 export default function Avatar({ config, speedRef, showName = true, ...props }) {
   const legL = useRef()
   const legR = useRef()
@@ -24,141 +30,141 @@ export default function Avatar({ config, speedRef, showName = true, ...props }) 
     if (armL.current) armL.current.rotation.x = -swing * 0.9
     if (armR.current) armR.current.rotation.x = swing * 0.9
     if (body.current) {
-      // petit rebond en marchant, léger "souffle" à l'arrêt
+      // petit rebond en marchant, léger « souffle » à l'arrêt
       body.current.position.y = Math.abs(Math.sin(t.current)) * 0.05 * speed + Math.sin(t.current * 0.4) * 0.008
     }
   })
 
-  const { skin, outfit, outfitColor, hair, hairColor, face } = config
+  const { skin, outfit, outfitColor } = config
   const long = outfit === 'boubou'
+  const skinDark = useMemo(() => shade(skin, 0.12), [skin])
+  const cloth = outfitColor
+  const clothDark = useMemo(() => shade(outfitColor, 0.14), [outfitColor])
+  const pantsDark = useMemo(() => shade(PANTS, 0.25), [])
 
   return (
     <group {...props}>
       <group ref={body}>
         {/* Jambes */}
-        {!long && (
+        {!long ? (
           <>
             <group ref={legL} position={[-0.11, 0.42, 0]}>
               <mesh position={[0, -0.18, 0]}>
                 <capsuleGeometry args={[0.09, 0.22, 4, 10]} />
-                <meshStandardMaterial color={PANTS} />
+                <Flat color={PANTS} />
               </mesh>
-              <mesh position={[0, -0.36, 0.04]}>
+              <mesh position={[0, -0.36, 0.04]} scale={[1, 0.8, 1.2]}>
                 <sphereGeometry args={[0.1, 12, 10]} />
-                <meshStandardMaterial color="#f4f4f1" />
+                <Flat color="#f4f4f1" />
               </mesh>
             </group>
             <group ref={legR} position={[0.11, 0.42, 0]}>
               <mesh position={[0, -0.18, 0]}>
                 <capsuleGeometry args={[0.09, 0.22, 4, 10]} />
-                <meshStandardMaterial color={PANTS} />
+                <Flat color={pantsDark} />
               </mesh>
-              <mesh position={[0, -0.36, 0.04]}>
+              <mesh position={[0, -0.36, 0.04]} scale={[1, 0.8, 1.2]}>
                 <sphereGeometry args={[0.1, 12, 10]} />
-                <meshStandardMaterial color="#f4f4f1" />
+                <Flat color="#dcdcd6" />
               </mesh>
             </group>
           </>
-        )}
-        {long && (
+        ) : (
           <>
-            {/* pieds qui dépassent du boubou */}
             <group ref={legL} position={[-0.11, 0.1, 0]}>
-              <mesh position={[0, 0, 0.12]}>
+              <mesh position={[0, 0, 0.12]} scale={[1, 0.8, 1.2]}>
                 <sphereGeometry args={[0.1, 12, 10]} />
-                <meshStandardMaterial color="#f4f4f1" />
+                <Flat color="#f4f4f1" />
               </mesh>
             </group>
             <group ref={legR} position={[0.11, 0.1, 0]}>
-              <mesh position={[0, 0, 0.12]}>
+              <mesh position={[0, 0, 0.12]} scale={[1, 0.8, 1.2]}>
                 <sphereGeometry args={[0.1, 12, 10]} />
-                <meshStandardMaterial color="#f4f4f1" />
+                <Flat color="#dcdcd6" />
               </mesh>
             </group>
           </>
         )}
 
         {/* Corps / vêtement */}
-        <Torso outfit={outfit} color={outfitColor} />
+        <Torso outfit={outfit} color={cloth} dark={clothDark} />
+
+        {/* Cou */}
+        <mesh position={[0, 0.97, 0]}>
+          <cylinderGeometry args={[0.085, 0.095, 0.14, 12]} />
+          <Flat color={skinDark} />
+        </mesh>
 
         {/* Bras */}
         <group ref={armL} position={[-0.3, 0.86, 0]}>
-          <Arm color={outfitColor} skin={skin} long={outfit !== 'tee'} />
+          <Arm color={clothDark} skin={skin} long={outfit !== 'tee'} />
         </group>
         <group ref={armR} position={[0.3, 0.86, 0]}>
-          <Arm color={outfitColor} skin={skin} long={outfit !== 'tee'} />
+          <Arm color={clothDark} skin={skin} long={outfit !== 'tee'} />
         </group>
 
         {/* Tête */}
-        <group position={[0, 1.2, 0]}>
-          <mesh scale={[1, 0.95, 0.97]}>
-            <sphereGeometry args={[0.32, 28, 20]} />
-            <meshStandardMaterial color={skin} />
-          </mesh>
-          {/* oreilles */}
-          <mesh position={[-0.31, -0.01, 0]}>
-            <sphereGeometry args={[0.06, 10, 8]} />
-            <meshStandardMaterial color={skin} />
-          </mesh>
-          <mesh position={[0.31, -0.01, 0]}>
-            <sphereGeometry args={[0.06, 10, 8]} />
-            <meshStandardMaterial color={skin} />
-          </mesh>
-          <Face face={face} />
-          <Hair hair={hair} color={hairColor} />
-        </group>
+        <Head config={config} />
       </group>
 
-      {/* Ombre ronde au sol (plus légère que de vraies ombres calculées) */}
+      {/* Ombre ronde au sol */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
         <circleGeometry args={[0.38, 20]} />
         <meshBasicMaterial color="#000" transparent opacity={0.16} depthWrite={false} />
       </mesh>
 
-      {showName && config.name && <NameTag name={config.name} position={[0, 1.95, 0]} />}
+      {showName && config.name && <NameTag name={config.name} position={[0, 1.98, 0]} />}
     </group>
   )
 }
 
-function Torso({ outfit, color }) {
+function Torso({ outfit, color, dark }) {
   if (outfit === 'boubou') {
     return (
-      <mesh position={[0, 0.44, 0]}>
-        <cylinderGeometry args={[0.25, 0.46, 0.88, 20]} />
-        <meshStandardMaterial color={color} />
-      </mesh>
+      <group>
+        <mesh position={[0, 0.44, 0]}>
+          <cylinderGeometry args={[0.25, 0.46, 0.88, 20]} />
+          <Flat color={color} />
+        </mesh>
+        {/* broderie au col et ourlet */}
+        <mesh position={[0, 0.88, 0]}>
+          <cylinderGeometry args={[0.255, 0.27, 0.08, 20]} />
+          <Flat color={dark} />
+        </mesh>
+        <mesh position={[0, 0.03, 0]}>
+          <cylinderGeometry args={[0.462, 0.465, 0.06, 20]} />
+          <Flat color={dark} />
+        </mesh>
+      </group>
     )
   }
   return (
     <group>
       <mesh position={[0, 0.68, 0]} scale={outfit === 'hoodie' ? [1.12, 1, 1.12] : [1, 1, 1]}>
         <capsuleGeometry args={[0.25, 0.3, 6, 14]} />
-        <meshStandardMaterial color={color} />
+        <Flat color={color} />
       </mesh>
       {outfit === 'hoodie' && (
         <>
-          {/* capuche */}
           <mesh position={[0, 0.93, -0.1]} rotation={[0.5, 0, 0]}>
             <torusGeometry args={[0.17, 0.07, 10, 18]} />
-            <meshStandardMaterial color={color} />
+            <Flat color={dark} />
           </mesh>
-          {/* poche */}
-          <mesh position={[0, 0.58, 0.29]}>
-            <boxGeometry args={[0.3, 0.12, 0.04]} />
-            <meshStandardMaterial color={color} roughness={1} />
+          <mesh position={[0, 0.56, 0.29]}>
+            <boxGeometry args={[0.32, 0.13, 0.04]} />
+            <Flat color={dark} />
           </mesh>
         </>
       )}
       {outfit === 'jacket' && (
         <>
-          {/* fermeture + col */}
-          <mesh position={[0, 0.68, 0.25]}>
-            <boxGeometry args={[0.03, 0.55, 0.03]} />
-            <meshStandardMaterial color="#f4f4f1" />
+          <mesh position={[0, 0.68, 0.255]}>
+            <boxGeometry args={[0.035, 0.55, 0.03]} />
+            <Flat color="#f4f4f1" />
           </mesh>
           <mesh position={[0, 0.96, 0]}>
-            <torusGeometry args={[0.15, 0.04, 8, 18]} />
-            <meshStandardMaterial color="#f4f4f1" />
+            <torusGeometry args={[0.15, 0.045, 8, 18]} />
+            <Flat color="#f4f4f1" />
           </mesh>
         </>
       )}
@@ -171,186 +177,198 @@ function Arm({ color, skin, long }) {
     <group>
       <mesh position={[0, -0.2, 0]}>
         <capsuleGeometry args={[0.07, long ? 0.24 : 0.12, 4, 8]} />
-        <meshStandardMaterial color={color} />
+        <Flat color={color} />
       </mesh>
       <mesh position={[0, long ? -0.43 : -0.36, 0]}>
         <sphereGeometry args={[0.075, 10, 8]} />
-        <meshStandardMaterial color={skin} />
+        <Flat color={skin} />
       </mesh>
     </group>
   )
 }
 
-// Un demi-cercle : ∩ tel quel, ∪ une fois tourné de 180°
-function Arc({ position, radius = 0.05, tube = 0.014, flip = false }) {
-  return (
-    <mesh position={position} rotation={[0, 0, flip ? Math.PI : 0]}>
-      <torusGeometry args={[radius, tube, 8, 14, Math.PI]} />
-      <meshStandardMaterial color={DARK} />
-    </mesh>
-  )
+// Silhouette « poire » : étroite en haut, large à la mâchoire.
+function usePearGeometry() {
+  return useMemo(() => {
+    const pts = []
+    for (let i = 0; i <= 28; i++) {
+      const a = (i / 28) * Math.PI // 0 (bas) → π (haut)
+      const y = -Math.cos(a) * R
+      const r = Math.sin(a) * R * (1 + 0.2 * (-y / R))
+      pts.push(new Vector2(Math.max(r, 0.0001), y))
+    }
+    return new LatheGeometry(pts, 28)
+  }, [])
 }
 
-function Dot({ position, r = 0.04 }) {
-  return (
-    <group position={position}>
-      <mesh>
-        <sphereGeometry args={[r, 12, 10]} />
-        <meshStandardMaterial color={DARK} />
-      </mesh>
-      <mesh position={[r * 0.35, r * 0.4, r * 0.8]}>
-        <sphereGeometry args={[r * 0.3, 8, 6]} />
-        <meshBasicMaterial color="#fff" />
-      </mesh>
-    </group>
-  )
-}
+function Head({ config }) {
+  const { skin, hair, hairColor, head, eyes, mouth } = config
+  const h = HEADS.find((x) => x.id === head) ?? HEADS[0]
+  const pear = usePearGeometry()
+  const skinDark = useMemo(() => shade(skin, 0.12), [skin])
 
-function Face({ face }) {
-  const z = 0.3
-  const blush = (
-    <>
-      <mesh position={[-0.19, -0.07, z - 0.07]} rotation={[0, -0.5, 0]}>
-        <circleGeometry args={[0.05, 14]} />
-        <meshBasicMaterial color="#ff7a8a" transparent opacity={0.35} />
-      </mesh>
-      <mesh position={[0.19, -0.07, z - 0.07]} rotation={[0, 0.5, 0]}>
-        <circleGeometry args={[0.05, 14]} />
-        <meshBasicMaterial color="#ff7a8a" transparent opacity={0.35} />
-      </mesh>
-    </>
-  )
+  // Le visage est dessiné une fois sur une image, puis collé sur la tête.
+  const faceTex = useMemo(() => {
+    const c = document.createElement('canvas')
+    c.width = 512
+    c.height = 420
+    drawFace(c, { eyes, mouth, skin })
+    const t = new CanvasTexture(c)
+    t.colorSpace = SRGBColorSpace
+    t.anisotropy = 4
+    return t
+  }, [eyes, mouth, skin])
+  useEffect(() => () => faceTex.dispose(), [faceTex])
+
+  const faceH = 0.42
+  const arc = h.w / h.rad
 
   return (
-    <group>
-      {face === 'smile' && (
-        <>
-          <Dot position={[-0.11, 0.03, z]} />
-          <Dot position={[0.11, 0.03, z]} />
-          <Arc position={[0, -0.1, z]} radius={0.06} flip />
-          {blush}
-        </>
+    <group position={[0, 1.2, 0]}>
+      {/* crâne */}
+      {h.geo === 'sphere' && (
+        <mesh scale={[h.sx, h.sy, h.sz]}>
+          <sphereGeometry args={[R, 32, 24]} />
+          <Flat color={skin} />
+        </mesh>
       )}
-      {face === 'joy' && (
-        <>
-          <Arc position={[-0.11, 0.02, z]} radius={0.045} />
-          <Arc position={[0.11, 0.02, z]} radius={0.045} />
-          <mesh position={[0, -0.1, z - 0.005]} rotation={[0, 0, Math.PI]}>
-            <circleGeometry args={[0.07, 14, 0, Math.PI]} />
-            <meshStandardMaterial color="#7a1f2b" side={2} />
-          </mesh>
-          {blush}
-        </>
+      {h.geo === 'box' && (
+        <RoundedBox args={[2 * R * h.sx, 2 * R * h.sy, 2 * R * h.sz]} radius={0.2} smoothness={4}>
+          <Flat color={skin} />
+        </RoundedBox>
       )}
-      {face === 'cool' && (
-        <>
-          <mesh position={[-0.11, 0.03, z + 0.01]}>
-            <boxGeometry args={[0.14, 0.09, 0.03]} />
-            <meshStandardMaterial color={DARK} roughness={0.2} />
-          </mesh>
-          <mesh position={[0.11, 0.03, z + 0.01]}>
-            <boxGeometry args={[0.14, 0.09, 0.03]} />
-            <meshStandardMaterial color={DARK} roughness={0.2} />
-          </mesh>
-          <mesh position={[0, 0.045, z + 0.01]}>
-            <boxGeometry args={[0.06, 0.015, 0.02]} />
-            <meshStandardMaterial color={DARK} />
-          </mesh>
-          <mesh position={[0, -0.11, z - 0.005]}>
-            <boxGeometry args={[0.1, 0.015, 0.02]} />
-            <meshStandardMaterial color={DARK} />
-          </mesh>
-        </>
+      {h.geo === 'pear' && (
+        <mesh geometry={pear} scale={[h.sx, h.sy, h.sz]}>
+          <Flat color={skin} />
+        </mesh>
       )}
-      {face === 'wink' && (
-        <>
-          <Arc position={[-0.11, 0.02, z]} radius={0.045} />
-          <Dot position={[0.11, 0.03, z]} />
-          <Arc position={[0, -0.1, z]} radius={0.06} flip />
-          {blush}
-        </>
+      {h.geo === 'capsule' && (
+        <mesh scale={[h.sx, 1, h.sz]}>
+          <capsuleGeometry args={[R * 0.9, R * 0.5 * h.sy, 10, 24]} />
+          <Flat color={skin} />
+        </mesh>
       )}
-      {face === 'wow' && (
-        <>
-          <Dot position={[-0.11, 0.04, z]} r={0.055} />
-          <Dot position={[0.11, 0.04, z]} r={0.055} />
-          <mesh position={[0, -0.1, z - 0.01]}>
-            <circleGeometry args={[0.035, 14]} />
-            <meshStandardMaterial color="#7a1f2b" />
-          </mesh>
-        </>
-      )}
+
+      {/* oreilles */}
+      {[-1, 1].map((side) => (
+        <mesh key={side} position={[side * (R * h.sx + 0.005), -0.02, -0.01]} scale={[0.6, 1, 0.8]}>
+          <sphereGeometry args={[0.065, 12, 10]} />
+          <Flat color={skinDark} />
+        </mesh>
+      ))}
+
+      {/* visage : yeux et bouche, courbé pour épouser la tête */}
+      <mesh position={[0, 0.0, h.frontZ - h.rad + 0.002]} rotation={[0, 0, 0]}>
+        <cylinderGeometry args={[h.rad, h.rad, faceH, 32, 1, true, -arc / 2, arc]} />
+        <meshBasicMaterial map={faceTex} transparent toneMapped={false} depthWrite={false} polygonOffset polygonOffsetFactor={-2} />
+      </mesh>
+
+      {/* coiffure : suit les proportions de la tête */}
+      <group scale={[h.sx * (h.hair ?? 1), h.sy * (h.hair ?? 1), h.sz * (h.hair ?? 1)]}>
+        <Hair hair={hair} color={hairColor} />
+      </group>
     </group>
   )
 }
 
 function Hair({ hair, color }) {
-  // plusieurs mèches pour les locks, calculées une seule fois
+  const dark = useMemo(() => shade(color, 0.1), [color])
+  // mèches des locks, calculées une seule fois
   const locs = useMemo(() => {
     const items = []
     const n = 16
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2
-      const len = 0.18 + ((i * 37) % 10) / 10 * 0.18
-      items.push({ x: Math.sin(a) * 0.3, z: -Math.cos(a) * 0.27, len, a, front: Math.cos(a) < -0.6 })
+      const len = 0.18 + (((i * 37) % 10) / 10) * 0.18
+      items.push({ x: Math.sin(a) * 0.3, z: -Math.cos(a) * 0.27, len, front: Math.cos(a) < -0.6 })
     }
     // pas de mèches devant le visage
     return items.filter((l) => !l.front)
   }, [])
 
-  const mat = <meshStandardMaterial color={color} roughness={0.9} />
-
-  if (hair === 'none') return null
-  if (hair === 'afro') {
-    return (
-      <mesh position={[0, 0.21, -0.14]}>
-        <sphereGeometry args={[0.38, 24, 18]} />
-        {mat}
-      </mesh>
-    )
-  }
-  if (hair === 'puffs') {
-    return (
-      <group>
-        <Cap color={color} />
-        <mesh position={[-0.2, 0.3, -0.02]}>
-          <sphereGeometry args={[0.14, 14, 12]} />
-          {mat}
+  switch (hair) {
+    case 'none':
+      return null
+    case 'afro':
+      return (
+        <mesh position={[0, 0.21, -0.14]}>
+          <sphereGeometry args={[0.38, 24, 18]} />
+          <Flat color={color} />
         </mesh>
-        <mesh position={[0.2, 0.3, -0.02]}>
-          <sphereGeometry args={[0.14, 14, 12]} />
-          {mat}
-        </mesh>
-      </group>
-    )
-  }
-  if (hair === 'locs') {
-    return (
-      <group>
-        <Cap color={color} thick />
-        {locs.map((l, i) => (
-          <mesh key={i} position={[l.x, 0.02 - l.len / 2, l.z - 0.04]}>
-            <capsuleGeometry args={[0.035, l.len, 4, 8]} />
-            {mat}
+      )
+    case 'puffs':
+      return (
+        <group>
+          <Cap color={color} />
+          {[-1, 1].map((s) => (
+            <mesh key={s} position={[s * 0.2, 0.3, -0.02]}>
+              <sphereGeometry args={[0.14, 14, 12]} />
+              <Flat color={color} />
+            </mesh>
+          ))}
+        </group>
+      )
+    case 'bun':
+      return (
+        <group>
+          <Cap color={color} />
+          <mesh position={[0, 0.37, -0.06]}>
+            <sphereGeometry args={[0.12, 14, 12]} />
+            <Flat color={dark} />
           </mesh>
-        ))}
-        {/* petites mèches sur le front */}
-        <mesh position={[-0.12, 0.2, 0.22]} rotation={[0.9, 0, 0.2]}>
-          <capsuleGeometry args={[0.035, 0.1, 4, 8]} />
-          {mat}
-        </mesh>
-        <mesh position={[0.02, 0.23, 0.22]} rotation={[0.9, 0, 0]}>
-          <capsuleGeometry args={[0.035, 0.1, 4, 8]} />
-          {mat}
-        </mesh>
-        <mesh position={[0.14, 0.2, 0.2]} rotation={[0.9, 0, -0.25]}>
-          <capsuleGeometry args={[0.035, 0.1, 4, 8]} />
-          {mat}
-        </mesh>
-      </group>
-    )
+        </group>
+      )
+    case 'quiff':
+      return (
+        <group>
+          <Cap color={color} />
+          <mesh position={[0.02, 0.31, 0.1]} rotation={[0, 0, Math.PI / 2 - 0.25]}>
+            <capsuleGeometry args={[0.11, 0.26, 6, 14]} />
+            <Flat color={dark} />
+          </mesh>
+        </group>
+      )
+    case 'bob':
+      return (
+        <group>
+          <Cap color={color} thick />
+          {[-1, 1].map((s) => (
+            <mesh key={s} position={[s * 0.285, -0.08, -0.02]}>
+              <capsuleGeometry args={[0.085, 0.3, 6, 12]} />
+              <Flat color={color} />
+            </mesh>
+          ))}
+          <mesh position={[0, -0.06, -0.27]} rotation={[0, 0, Math.PI / 2]}>
+            <capsuleGeometry args={[0.1, 0.4, 6, 12]} />
+            <Flat color={dark} />
+          </mesh>
+        </group>
+      )
+    case 'locs':
+      return (
+        <group>
+          <Cap color={color} thick />
+          {locs.map((l, i) => (
+            <mesh key={i} position={[l.x, 0.02 - l.len / 2, l.z - 0.04]}>
+              <capsuleGeometry args={[0.035, l.len, 4, 8]} />
+              <Flat color={dark} />
+            </mesh>
+          ))}
+          {[
+            [-0.12, 0.2, 0.22, 0.2],
+            [0.02, 0.23, 0.22, 0],
+            [0.14, 0.2, 0.2, -0.25],
+          ].map(([x, y, z, rz], i) => (
+            <mesh key={i} position={[x, y, z]} rotation={[0.9, 0, rz]}>
+              <capsuleGeometry args={[0.035, 0.1, 4, 8]} />
+              <Flat color={dark} />
+            </mesh>
+          ))}
+        </group>
+      )
+    default:
+      return <Cap color={color} />
   }
-  return <Cap color={color} />
 }
 
 function Cap({ color, thick = false }) {
@@ -358,7 +376,7 @@ function Cap({ color, thick = false }) {
   return (
     <mesh position={[0, 0.02, -0.02]} rotation={[-0.25, 0, 0]}>
       <sphereGeometry args={[r, 24, 14, 0, Math.PI * 2, 0, Math.PI * 0.5]} />
-      <meshStandardMaterial color={color} roughness={0.9} />
+      <Flat color={color} />
     </mesh>
   )
 }
