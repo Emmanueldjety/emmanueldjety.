@@ -19,6 +19,6 @@ Portfolio sous forme de galerie d'art en 3D, visitable depuis un navigateur (ord
 
 ## Modifier le contenu
 
-- **Œuvres** : `src/data/artworks.js` (titres, descriptions) et images dans `public/art/`.
+- **Œuvres** : `src/data/artworks.js` (titres, descriptions) et images dans `src/assets/art/`.
 - **Options du personnage** (couleurs, coiffures…) : `src/avatar/config.js`.
 - **Taille de la pièce, décor** : `src/gallery/Room.jsx`.

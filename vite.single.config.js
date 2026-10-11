@@ -1,0 +1,9 @@
+// Version "un seul fichier" (tout est intégré dans une page HTML), pratique pour partager un test.
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import { viteSingleFile } from 'vite-plugin-singlefile'
+
+export default defineConfig({
+  plugins: [react(), viteSingleFile()],
+  build: { outDir: 'dist-single', assetsInlineLimit: 100000000, chunkSizeWarningLimit: 4000 },
+})
