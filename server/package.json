@@ -1,0 +1,16 @@
+{
+  "name": "mda-galerie-live",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Serveur temps réel de la galerie : fait circuler les positions, les messages et les places assises entre les visiteurs.",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

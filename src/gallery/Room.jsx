@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
+import { Billboard } from '@react-three/drei'
 import { CanvasTexture, RepeatWrapping, SRGBColorSpace } from 'three'
 import { DOOR_Z, ROOM, wallPose } from './layout.js'
 import { doorsFor } from '../data/rooms.js'
 import { getTexture } from './textures.js'
+import { toggleMusic, useMusic } from '../audio/music.js'
 import {
   makeBoardTexture,
   makeCardTexture,
@@ -15,7 +17,7 @@ import {
 const CHARCOAL = '#2e2f2f'
 const WALL = '#f6f5f2'
 
-export default function Room({ room, onOpen, onDoor }) {
+export default function Room({ room, onOpen, onDoor, onBench }) {
   const { w, d, h } = ROOM
 
   const floorTex = useMemo(() => {
@@ -111,10 +113,23 @@ export default function Room({ room, onOpen, onDoor }) {
         <Door key={door.target} door={door} onDoor={onDoor} />
       ))}
 
-      {/* Décor */}
-      {room.decor.map((dec, i) =>
-        dec.type === 'bench' ? <Bench key={i} {...dec} /> : <Plinth key={i} position={[dec.x, 0, dec.z]} color={dec.color} />,
-      )}
+      {/* Décor et meubles */}
+      {room.decor.map((dec, i) => {
+        switch (dec.type) {
+          case 'bench':
+            return <Bench key={i} {...dec} onClick={() => onBench(i)} />
+          case 'rug':
+            return <Rug key={i} {...dec} />
+          case 'plant':
+            return <Plant key={i} position={[dec.x, 0, dec.z]} />
+          case 'table':
+            return <StandingTable key={i} {...dec} onOpen={onOpen} />
+          case 'turntable':
+            return <Turntable key={i} {...dec} />
+          default:
+            return <Plinth key={i} position={[dec.x, 0, dec.z]} color={dec.color} />
+        }
+      })}
     </group>
   )
 }
@@ -145,10 +160,20 @@ function Skirting({ w, d, accent }) {
   )
 }
 
-function Bench({ x, z, along, len }) {
+function Bench({ x, z, along, len, onClick }) {
   const rot = along === 'x' ? Math.PI / 2 : 0
+  const { handlers } = useHover()
   return (
-    <group position={[x, 0, z]} rotation={[0, rot, 0]}>
+    <group
+      position={[x, 0, z]}
+      rotation={[0, rot, 0]}
+      {...handlers}
+      onClick={(e) => {
+        e.stopPropagation()
+        if (e.delta > 8) return
+        onClick()
+      }}
+    >
       <mesh position={[0, 0.42, 0]}>
         <boxGeometry args={[0.8, 0.12, len]} />
         <meshStandardMaterial color={CHARCOAL} />
@@ -411,6 +436,224 @@ function Door({ door, onDoor }) {
         <planeGeometry args={[3.6, 0.68]} />
         <meshBasicMaterial map={tex} transparent toneMapped={false} />
       </mesh>
+    </group>
+  )
+}
+
+// Tapis sous un banc.
+function Rug({ x, z, w, d, color }) {
+  return (
+    <group position={[x, 0.012, z]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh>
+        <planeGeometry args={[w, d]} />
+        <meshBasicMaterial color="#2e2f2f" toneMapped={false} />
+      </mesh>
+      <mesh position={[0, 0, 0.002]}>
+        <planeGeometry args={[w - 0.2, d - 0.2]} />
+        <meshBasicMaterial color={color} toneMapped={false} />
+      </mesh>
+      <mesh position={[0, 0, 0.004]}>
+        <planeGeometry args={[w - 0.6, d - 0.6]} />
+        <meshBasicMaterial color="#fbfbf9" toneMapped={false} />
+      </mesh>
+    </group>
+  )
+}
+
+function Plant({ position }) {
+  const leaves = [
+    [0, 0.75, 0, 0.26, '#6fa83a'],
+    [0.14, 0.55, 0.06, 0.2, '#84bd4b'],
+    [-0.14, 0.58, -0.05, 0.21, '#84bd4b'],
+    [0.04, 1.0, 0.04, 0.17, '#9bd05a'],
+    [-0.1, 0.9, 0.1, 0.15, '#6fa83a'],
+  ]
+  return (
+    <group position={position}>
+      <mesh position={[0, 0.2, 0]}>
+        <cylinderGeometry args={[0.25, 0.19, 0.4, 16]} />
+        <meshStandardMaterial color="#dd4a8e" />
+      </mesh>
+      <mesh position={[0, 0.41, 0]}>
+        <cylinderGeometry args={[0.23, 0.23, 0.03, 16]} />
+        <meshStandardMaterial color="#2e2f2f" />
+      </mesh>
+      {leaves.map(([x, y, z, r, c], i) => (
+        <mesh key={i} position={[x, y, z]} scale={[1, 1.25, 1]}>
+          <sphereGeometry args={[r, 14, 12]} />
+          <meshStandardMaterial color={c} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+// Table haute : des cartes avec le nom des collaborateurs. Un clic ouvre la liste.
+function StandingTable({ x, z, cards, panel, onOpen }) {
+  const { hover, handlers } = useHover()
+  const textures = useMemo(
+    () =>
+      cards.map((name) =>
+        makeTextTexture([{ text: name, size: 58, weight: 800 }], { width: 420, height: 240, bg: '#fbfbf9', pad: 26 }),
+      ),
+    [cards],
+  )
+  const label = useMemo(
+    () => makeTextTexture([{ text: 'Collaborateurs', size: 92, weight: 800, color: '#ffffff' }], { width: 900, height: 150, bg: '#2e2f2f', pad: 24, align: 'center' }),
+    [],
+  )
+  useEffect(
+    () => () => {
+      textures.forEach((t) => t.dispose())
+      label.dispose()
+    },
+    [textures, label],
+  )
+  const top = 1.06
+  return (
+    <group
+      position={[x, 0, z]}
+      {...handlers}
+      onClick={(e) => {
+        e.stopPropagation()
+        if (e.delta > 8) return
+        onOpen({ ...panel, image: null, cover: null })
+      }}
+    >
+      <mesh position={[0, 0.03, 0]}>
+        <cylinderGeometry args={[0.32, 0.34, 0.06, 20]} />
+        <meshStandardMaterial color="#2e2f2f" />
+      </mesh>
+      <mesh position={[0, 0.55, 0]}>
+        <cylinderGeometry args={[0.045, 0.045, 1.0, 12]} />
+        <meshStandardMaterial color="#2e2f2f" />
+      </mesh>
+      <mesh position={[0, top, 0]}>
+        <cylinderGeometry args={[0.52, 0.52, 0.05, 28]} />
+        <meshStandardMaterial color={hover ? '#f5c115' : '#fbfbf9'} />
+      </mesh>
+      <mesh position={[0, top - 0.04, 0]}>
+        <cylinderGeometry args={[0.53, 0.53, 0.03, 28]} />
+        <meshStandardMaterial color="#2e2f2f" />
+      </mesh>
+      {textures.map((tex, i) => {
+        const a = (i - (textures.length - 1) / 2) * 1.05
+        return (
+          <group key={i} position={[Math.sin(a) * 0.3, top + 0.17, Math.cos(a) * 0.3]} rotation={[0, a, 0]}>
+            <mesh rotation={[-0.25, 0, 0]}>
+              <planeGeometry args={[0.46, 0.263]} />
+              <meshBasicMaterial map={tex} toneMapped={false} />
+            </mesh>
+          </group>
+        )
+      })}
+      <Billboard position={[0, 1.78, 0]}>
+        <mesh>
+          <planeGeometry args={[1.2, 0.2]} />
+          <meshBasicMaterial map={label} toneMapped={false} />
+        </mesh>
+      </Billboard>
+    </group>
+  )
+}
+
+// Tourne-disque : un clic lance ou coupe la musique de la galerie.
+function Turntable({ x, z }) {
+  const disc = useRef()
+  const { playing, track } = useMusic()
+  const { hover, handlers } = useHover()
+  const label = useMemo(
+    () =>
+      makeTextTexture(
+        [
+          { text: 'Beats · MDA', size: 90, weight: 800, color: '#ffffff' },
+        ],
+        { width: 800, height: 150, bg: '#2e2f2f', pad: 24, align: 'center' },
+      ),
+    [],
+  )
+  const now = useMemo(
+    () =>
+      makeTextTexture([{ text: track ? `${track.title} · prod. ${track.artist}` : '', size: 50, weight: 600, color: '#2e2f2f' }], {
+        width: 1000,
+        height: 100,
+        bg: '#f5c115',
+        pad: 22,
+        align: 'center',
+      }),
+    [track],
+  )
+  useEffect(
+    () => () => {
+      label.dispose()
+      now.dispose()
+    },
+    [label, now],
+  )
+  useFrame((_, dt) => {
+    if (disc.current && playing) disc.current.rotation.y += dt * 2.4
+  })
+  return (
+    <group
+      position={[x, 0, z]}
+      rotation={[0, Math.PI / 2, 0]}
+      {...handlers}
+      onClick={(e) => {
+        e.stopPropagation()
+        if (e.delta > 8) return
+        toggleMusic()
+      }}
+    >
+      <mesh position={[0, 0.36, 0]}>
+        <boxGeometry args={[1.1, 0.72, 0.8]} />
+        <meshStandardMaterial color={hover ? '#4a4b4b' : '#2e2f2f'} />
+      </mesh>
+      <mesh position={[0, 0.73, 0]}>
+        <boxGeometry args={[1.0, 0.06, 0.7]} />
+        <meshStandardMaterial color="#fbfbf9" />
+      </mesh>
+      <group ref={disc} position={[-0.12, 0.78, 0]}>
+        <mesh>
+          <cylinderGeometry args={[0.31, 0.31, 0.02, 32]} />
+          <meshStandardMaterial color="#111111" />
+        </mesh>
+        <mesh position={[0, 0.012, 0]}>
+          <cylinderGeometry args={[0.1, 0.1, 0.01, 24]} />
+          <meshBasicMaterial color="#dd4a8e" toneMapped={false} />
+        </mesh>
+        <mesh position={[0.2, 0.012, 0]}>
+          <boxGeometry args={[0.03, 0.005, 0.03]} />
+          <meshBasicMaterial color="#ffffff" toneMapped={false} />
+        </mesh>
+      </group>
+      <mesh position={[0.3, 0.8, -0.2]} rotation={[0, 0.5, 0]}>
+        <boxGeometry args={[0.36, 0.02, 0.025]} />
+        <meshStandardMaterial color="#cfcfca" />
+      </mesh>
+      {[-0.78, 0.78].map((dx) => (
+        <mesh key={dx} position={[dx, 0.42, 0]}>
+          <boxGeometry args={[0.34, 0.84, 0.4]} />
+          <meshStandardMaterial color="#2e2f2f" />
+        </mesh>
+      ))}
+      {[-0.78, 0.78].map((dx) => (
+        <mesh key={`c${dx}`} position={[dx, 0.3, 0.205]}>
+          <circleGeometry args={[0.12, 20]} />
+          <meshBasicMaterial color="#f5c115" toneMapped={false} />
+        </mesh>
+      ))}
+      <Billboard position={[0, 1.55, 0]}>
+        <mesh>
+          <planeGeometry args={[1.1, 0.2]} />
+          <meshBasicMaterial map={label} toneMapped={false} />
+        </mesh>
+        {track && (
+          <mesh position={[0, -0.22, 0]}>
+            <planeGeometry args={[1.5, 0.15]} />
+            <meshBasicMaterial map={now} toneMapped={false} />
+          </mesh>
+        )}
+      </Billboard>
     </group>
   )
 }

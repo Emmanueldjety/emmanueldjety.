@@ -1,0 +1,10 @@
+# Déploiement du serveur temps réel sur Render (gratuit) : voir server/README.md
+services:
+  - type: web
+    name: mda-galerie-live
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node index.js
+    healthCheckPath: /health

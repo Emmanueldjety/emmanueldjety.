@@ -30,6 +30,17 @@ export const CONTACT = {
   phone: '+225 01 43 51 41 18',
 }
 
+// ---------- Collaborateurs (table haute de la salle Portfolio) ----------
+// Pour ajouter le portfolio d'un ami : renseigne son adresse dans `url` (Behance, site, Drive...).
+export const COLLABORATORS = [
+  { name: 'Harris Agueh', note: 'MTN MoMo · AIDA · Ouidah 92', url: null },
+  { name: 'Sullyvan Atchahoue', note: 'MTN MoMo · AIDA · Ouidah 92', url: null },
+  { name: 'Resnick Tometin', note: 'MTN MoMo · TRC · AIDA', url: null },
+  { name: 'Oneal Homeky', note: 'Modélisation du trophée · TRC', url: null },
+  { name: 'Esdras Godjo', note: 'AIDA · Ouidah 92', url: null },
+  { name: 'Olmert Hontonnou', note: 'AIDA · Ouidah 92', url: null },
+]
+
 // ---------- Salle 1 : Graphisme ----------
 const covers = [
   { image: masque, title: 'Sans titre — Masque', kind: 'Cover art', description: 'Collage photo et masque en métal : le visage se reconstruit par morceaux.' },
@@ -82,10 +93,15 @@ const graphisme = {
     { ...post(postAtlantique, [1.4, 1.68], 'Transfert en devise — Banque Atlantique', 'Post de communication pour Banque Atlantique.'), at: 9 },
   ],
   decor: [
+    { type: 'rug', x: 0, z: -6.4, w: 4.4, d: 2.4, color: C.pink },
     { type: 'bench', x: 0, z: -6.4, along: 'x', len: 3 },
+    { type: 'rug', x: -9.2, z: 0, w: 2.4, d: 4.4, color: C.pink },
     { type: 'bench', x: -9.2, z: 0, along: 'z', len: 3 },
     { type: 'plinth', x: 6, z: -2.5, color: C.green },
     { type: 'plinth', x: 6, z: 2.5, color: C.orange },
+    { type: 'plant', x: -11.8, z: -7.8 },
+    { type: 'plant', x: 11.8, z: -7.8 },
+    { type: 'plant', x: -11.8, z: 7.8 },
   ],
 }
 
@@ -225,9 +241,24 @@ const portfolio = {
     },
   ],
   decor: [
+    { type: 'rug', x: 0, z: -5.4, w: 5.4, d: 2.4, color: C.blue },
     { type: 'bench', x: 0, z: -5.4, along: 'x', len: 4 },
     { type: 'plinth', x: 6, z: -2.5, color: C.blue },
     { type: 'plinth', x: 6, z: 2.5, color: C.pink },
+    {
+      type: 'table', x: -8.5, z: 4,
+      cards: COLLABORATORS.slice(0, 3).map((c) => c.name),
+      panel: {
+        title: 'Collaborateurs',
+        kind: 'Ils ont travaillé avec moi',
+        description: 'Les personnes avec qui j’ai monté ces projets. Les portfolios arrivent bientôt.',
+        people: COLLABORATORS,
+        details: [],
+        links: [],
+      },
+    },
+    { type: 'plant', x: -11.8, z: -7.8 },
+    { type: 'plant', x: 11.8, z: -7.8 },
   ],
 }
 
@@ -263,9 +294,13 @@ const reseaux = {
     },
   ],
   decor: [
+    { type: 'rug', x: 0, z: -5.4, w: 4.4, d: 2.4, color: C.orange },
     { type: 'bench', x: 0, z: -5.4, along: 'x', len: 3 },
     { type: 'plinth', x: 6, z: -2.5, color: C.orange },
     { type: 'plinth', x: 6, z: 2.5, color: C.green },
+    { type: 'plant', x: -11.8, z: -7.8 },
+    { type: 'plant', x: 11.8, z: -7.8 },
+    { type: 'plant', x: -11.8, z: 7.8 },
   ],
 }
 
@@ -329,15 +364,19 @@ const apropos = {
         title: 'MDA, beatmaker',
         lines: [
           { type: 'p', text: 'Je produis des beats sous le nom MDA.' },
-          { type: 'p', text: 'L’écoute arrive bientôt dans la galerie.' },
+          { type: 'p', text: 'Touche le tourne-disque pour lancer ou couper la musique de la galerie.' },
         ],
       },
     },
   ],
   decor: [
+    { type: 'rug', x: 0, z: -5.4, w: 4.4, d: 2.4, color: C.green },
     { type: 'bench', x: 0, z: -5.4, along: 'x', len: 3 },
     { type: 'plinth', x: 6, z: -2.5, color: C.green },
     { type: 'plinth', x: 6, z: 2.5, color: C.pink },
+    { type: 'turntable', x: -10.6, z: 4.5 },
+    { type: 'plant', x: -11.8, z: -7.8 },
+    { type: 'plant', x: 11.8, z: -7.8 },
   ],
 }
 
@@ -355,6 +394,9 @@ export function collidersFor(room) {
   const boxes = []
   for (const d of room.decor) {
     if (d.type === 'plinth') circles.push({ x: d.x, z: d.z, r: 0.55 })
+    if (d.type === 'table') circles.push({ x: d.x, z: d.z, r: 0.62 })
+    if (d.type === 'plant') circles.push({ x: d.x, z: d.z, r: 0.4 })
+    if (d.type === 'turntable') circles.push({ x: d.x, z: d.z, r: 0.7 })
     if (d.type === 'bench') {
       const half = d.len / 2
       boxes.push(d.along === 'x' ? { x: d.x, z: d.z, hw: half, hd: 0.45 } : { x: d.x, z: d.z, hw: 0.45, hd: half })
@@ -362,3 +404,22 @@ export function collidersFor(room) {
   }
   return { circles, boxes }
 }
+
+// Places assises : chaque banc a plusieurs places. `key` identifie la place pour tous les visiteurs.
+export function seatsFor(room) {
+  const seats = []
+  room.decor.forEach((d, bi) => {
+    if (d.type !== 'bench') return
+    const n = Math.max(1, Math.round(d.len / 1.4))
+    for (let k = 0; k < n; k++) {
+      const off = (k - (n - 1) / 2) * (d.len / n)
+      const key = `${room.id}:${bi}:${k}`
+      if (d.along === 'x') seats.push({ key, bench: bi, x: d.x + off, z: d.z, facing: Math.PI, stand: { x: d.x + off, z: d.z - 1.05 } })
+      else seats.push({ key, bench: bi, x: d.x, z: d.z + off, facing: -Math.PI / 2, stand: { x: d.x - 1.05, z: d.z + off } })
+    }
+  })
+  return seats
+}
+
+const SEATS = new Map(ROOMS.flatMap((r) => seatsFor(r)).map((s) => [s.key, s]))
+export const seatByKey = (key) => SEATS.get(key) ?? null

@@ -18,9 +18,14 @@ On passe d'une salle à l'autre en marchant dans une porte, ou avec les boutons 
 3. Ouvre l'adresse affichée (souvent http://localhost:5173).
 4. Pour tester sur ton téléphone (même Wi-Fi) : `npm run dev -- --host`, puis ouvre l'adresse « Network ».
 
+## Visiteurs en direct, chat et places assises
+
+Le serveur est dans le dossier `server/` (mode d'emploi : `server/README.md`). Tant qu'il n'est pas branché, la galerie reste en « mode solo ».
+Une fois mis en ligne, son adresse se colle dans `src/net/config.js`.
+
 ## Commandes
 
-- **Ordinateur** : Z Q S D (ou flèches) pour marcher · Maj pour courir · glisser la souris pour tourner la caméra · cliquer sur une œuvre pour ouvrir sa fiche (Échap pour fermer).
+- **Ordinateur** : Z Q S D (ou flèches) pour marcher · Maj pour courir · glisser la souris pour tourner la caméra · cliquer sur une œuvre pour ouvrir sa fiche (Échap pour fermer) · E pour s'asseoir ou se lever · Entrée pour discuter.
 - **Mobile** : joystick à l'écran pour marcher · glisser le doigt pour tourner la caméra · toucher une œuvre pour ouvrir sa fiche.
 
 ## Modifier le contenu
@@ -29,3 +34,5 @@ On passe d'une salle à l'autre en marchant dans une porte, ou avec les boutons 
 - **Images** : dans `src/assets/` (art/ pour les covers, work/ pour le reste).
 - **Options du personnage** : couleurs et coiffures dans `src/avatar/config.js` ; formes de têtes, yeux et bouches (dessinés en 2D) dans `src/avatar/face.js`.
 - **Taille des salles, position des portes** : `src/gallery/layout.js`.
+- **Beats** : fichiers MP3 dans `public/beats/`, liste dans `src/data/beats.js`.
+- **Collaborateurs** (table haute du Portfolio) : liste dans `src/data/rooms.js`, rubrique `COLLABORATORS`.

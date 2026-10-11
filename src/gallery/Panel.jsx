@@ -41,6 +41,25 @@ export default function Panel({ item, onClose }) {
               ))}
             </dl>
           )}
+          {item.people?.length > 0 && (
+            <ul className="people">
+              {item.people.map((pp) => (
+                <li key={pp.name}>
+                  <div>
+                    <strong>{pp.name}</strong>
+                    <span>{pp.note}</span>
+                  </div>
+                  {pp.url ? (
+                    <a href={pp.url} target="_blank" rel="noopener noreferrer">
+                      Portfolio ↗
+                    </a>
+                  ) : (
+                    <em>portfolio bientôt</em>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
           {(item.links?.length > 0 || item.copy) && (
             <div className="panel-links">
               {item.links.map((l) => (

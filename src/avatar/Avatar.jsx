@@ -13,25 +13,31 @@ function Flat({ color }) {
 }
 
 // Petit personnage en aplats de couleur. `speedRef.current` (0 → 1) le fait marcher.
-export default function Avatar({ config, speedRef, showName = true, ...props }) {
+export default function Avatar({ config, speedRef, showName = true, sitting = false, bubble = null, ...props }) {
   const legL = useRef()
   const legR = useRef()
   const armL = useRef()
   const armR = useRef()
   const body = useRef()
   const t = useRef(0)
+  const sitAmt = useRef(0)
+  const sitGoal = useRef(0)
+  sitGoal.current = sitting ? 1 : 0
 
   useFrame((_, delta) => {
     const speed = speedRef?.current ?? 0
     t.current += delta * (3 + speed * 9)
-    const swing = Math.sin(t.current) * 0.7 * speed
-    if (legL.current) legL.current.rotation.x = swing
-    if (legR.current) legR.current.rotation.x = -swing
-    if (armL.current) armL.current.rotation.x = -swing * 0.9
-    if (armR.current) armR.current.rotation.x = swing * 0.9
+    // assis : 0 = debout, 1 = assis (transition douce)
+    sitAmt.current += (sitGoal.current - sitAmt.current) * Math.min(1, delta * 10)
+    const sa = sitAmt.current
+    const swing = Math.sin(t.current) * 0.7 * speed * (1 - sa)
+    if (legL.current) legL.current.rotation.x = swing - 1.3 * sa
+    if (legR.current) legR.current.rotation.x = -swing - 1.3 * sa
+    if (armL.current) armL.current.rotation.x = -swing * 0.9 - 0.35 * sa
+    if (armR.current) armR.current.rotation.x = swing * 0.9 - 0.35 * sa
     if (body.current) {
-      // petit rebond en marchant, léger « souffle » à l'arrêt
-      body.current.position.y = Math.abs(Math.sin(t.current)) * 0.05 * speed + Math.sin(t.current * 0.4) * 0.008
+      // petit rebond en marchant, léger « souffle » à l'arrêt ; le corps monte sur le banc quand on s'assoit
+      body.current.position.y = (Math.abs(Math.sin(t.current)) * 0.05 * speed + Math.sin(t.current * 0.4) * 0.008) * (1 - sa) + 0.2 * sa
     }
   })
 
@@ -114,6 +120,7 @@ export default function Avatar({ config, speedRef, showName = true, ...props }) 
       </mesh>
 
       {showName && config.name && <NameTag name={config.name} position={[0, 1.98, 0]} />}
+      {bubble && <ChatBubble text={bubble} position={[0, 2.3, 0]} />}
     </group>
   )
 }
@@ -410,6 +417,64 @@ function NameTag({ name, position }) {
   const h = 0.17
   return (
     <sprite position={position} scale={[h * ratio, h, 1]} renderOrder={10}>
+      <spriteMaterial map={tex} transparent depthTest={false} toneMapped={false} />
+    </sprite>
+  )
+}
+
+// Bulle de discussion au-dessus de la tête (disparaît toute seule).
+function ChatBubble({ text, position }) {
+  const { tex, w, h } = useMemo(() => {
+    const font = `600 34px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif`
+    const probe = document.createElement('canvas').getContext('2d')
+    probe.font = font
+    const maxW = 520
+    const lines = []
+    let line = ''
+    for (const word of text.split(' ')) {
+      const test = line ? `${line} ${word}` : word
+      if (probe.measureText(test).width > maxW && line) {
+        lines.push(line)
+        line = word
+      } else line = test
+    }
+    if (line) lines.push(line)
+    const shown = lines.slice(0, 3)
+    const tw = Math.min(maxW, Math.max(...shown.map((l) => probe.measureText(l).width))) + 52
+    const th = shown.length * 44 + 36
+    const tail = 22
+    const c = document.createElement('canvas')
+    c.width = Math.ceil(tw)
+    c.height = th + tail
+    const g = c.getContext('2d')
+    g.fillStyle = '#ffffff'
+    g.strokeStyle = '#2e2f2f'
+    g.lineWidth = 4
+    g.beginPath()
+    g.roundRect(3, 3, tw - 6, th - 6, 22)
+    g.fill()
+    g.stroke()
+    g.beginPath()
+    g.moveTo(tw / 2 - 12, th - 4)
+    g.lineTo(tw / 2, th + tail - 3)
+    g.lineTo(tw / 2 + 12, th - 4)
+    g.closePath()
+    g.fill()
+    g.fillStyle = '#ffffff'
+    g.fillRect(tw / 2 - 11, th - 8, 22, 6)
+    g.fillStyle = '#2e2f2f'
+    g.font = font
+    g.textAlign = 'center'
+    g.textBaseline = 'middle'
+    shown.forEach((l, i) => g.fillText(l, tw / 2, 18 + 22 + i * 44))
+    const t = new CanvasTexture(c)
+    t.colorSpace = SRGBColorSpace
+    return { tex: t, w: c.width, h: c.height }
+  }, [text])
+  useEffect(() => () => tex.dispose(), [tex])
+  const k = 0.0042
+  return (
+    <sprite position={[position[0], position[1] + (h * k) / 2, position[2]]} scale={[w * k, h * k, 1]} renderOrder={11}>
       <spriteMaterial map={tex} transparent depthTest={false} toneMapped={false} />
     </sprite>
   )
